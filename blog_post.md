@@ -32,7 +32,7 @@ ResNet-18 is a compelling choice for computing visual similarity between images,
 - **Deep Residual Learning:** ResNet-18, a variant of the Residual Network (ResNet) family, incorporates deep residual learning. In ResNet-18, there are 18 layers, including convolutional layers, batch normalization, ReLU activations, and fully connected layers.
 - **Feature Extraction:** One of the primary strengths of ResNet-18 is its feature extraction capability. In the context of pill images, ResNet-18 can learn and identify intricate patterns, shapes, and colors that are unique to different pills. During the forward pass, as the image goes through successive layers, the network learns hierarchically more complex and abstract features. Initial layers might detect edges or basic shapes, while deeper layers can identify more specific features relevant to different types of pills.
 - **Efficiency and Speed:** Despite being deep, ResNet-18 is relatively lightweight compared to other deeper models (like ResNet-50 or ResNet-101). This makes it a good choice for applications where computational resources or inference time might be a concern, without significantly compromising on the accuracy of feature extraction.
-- **Performance in Feature Embedding:** For tasks like visual similarity, it's essential to have a robust feature embedding, which is a compressed representation of the input image. ResNet-18, due to its deep structure, can create rich, discriminative embeddings. When you input two pill images, ResNet-18 processes them to produce feature vectors.
+- **Performance in Feature Embedding:** For tasks like visual similarity, it's essential to have a robust feature embedding, which is a compressed representation of the input image. ResNet-18, due to its deep structure, can create rich, discriminative embeddings. When we input two pill images, ResNet-18 processes them to produce feature vectors.
 
 The similarity between these vectors can then be calculated using metrics like cosine similarity or Euclidean distance. The closer these vectors are in the feature space, the more similar the images are.
 
@@ -51,7 +51,7 @@ Gradio is an open-source Python library that provides an easy way to create cust
 The results are then displayed back to the user through the Gradio interface and are divided into two different columns:
 
 - in the first there are the `3 images` most similar to the input one 
-- in the second there are `3 similar images` to which you must pay attention because they have a description of the pill as different as possible from the one inserted.
+- in the second there are `3 similar images` to which we must pay attention because they have a description of the pill as different as possible from the one inserted.
 
 It is necessary to specify that since the input image has no text but is just an image, the description taken is that of the image whose unique identification code is equal to one of those present in the dataset or, in case there is no exact match, that of the image which is absolutely most similar to the input one.
 
@@ -63,7 +63,9 @@ The interface that the user will initially load is as follows:
 
 ## Activeloop Visualizer
 
-To show the images returned after the search, an Activeloop tool called Visualizer was used. This tool allows you to interact with the Deep Lake dataset and view the images that have been saved in the datasets by rendering them directly into HTML.
+To show the images returned after the search, the Activeloop rendering engine called Visualizer was used. This functionality allows us to view the data present in the Deep Lake by loading it in HTML format.
+It was then possible to embed the Activeloop visualization engine into our RAG applications.
+
 
 <img src="gradio_ui_results.webp" alt="Gradio UI Image"/>
 
@@ -75,7 +77,7 @@ Now we can move on to the last phase, the similarity search via description of t
 
 ## Advanced Retrieval Strategies
 
-A technique that is becoming increasingly popular in this period is that of Retrieval-Augmented Generation (RAG) which enhances large language models (LLMs) by integrating external authoritative knowledge sources beyond their initial training datasets for response generation. LLMs, trained on extensive data and utilizing billions of parameters, excel in tasks such as question answering, language translation, and sentence completion.
+A technique that is becoming increasingly popular in this period is the Retrieval-Augmented Generation (RAG) which enhances large language models (LLMs) by integrating external authoritative knowledge sources beyond their initial training datasets for response generation. LLMs, trained on extensive data and utilizing billions of parameters, excel in tasks such as question answering, language translation, and sentence completion.
 
 RAG builds upon these strengths, tailoring LLMs to particular domains or aligning them with an organization's internal knowledge, without necessitating model retraining. This method provides a cost-efficient solution to refine LLM outputs, ensuring their continued relevance, precision, and utility across diverse applications.
 
@@ -94,7 +96,6 @@ There are five key stages within RAG, which in turn will be a part of any larger
 These processes can be easily and clearly represented by the following diagram in the LLamaIndex guide:
 
 <img src="https://docs.llamaindex.ai/en/latest/_images/basic_rag.png" alt="Gradio UI Image"/>
-
 
 Since we have a description for each pill we used these descriptions as if they were documents in order to then be able to obtain the most similar ones (and therefore also the least similar ones) once the description of the input pill was passed to the model.
 
@@ -146,6 +147,26 @@ This part is made up of two main blocks:
 - **Retriever**: we tried different approaches which will be described below
 
 ### Retriever Phase
+
+Retrievers are responsible for fetching the most relevant context given a user query (or chat message).
+It can be built on top of indexes, but can also be defined independently. It is used as a key building block in query engines (and Chat Engines) for retrieving relevant context.
+
+**Vector Store Index**
+
+A VectorStoreIndex is by far the most frequent type of Index you’ll encounter. The Vector Store Index takes your Documents and splits them up into Nodes. It then creates vector embeddings of the text of every node, ready to be queried by an LLM.
+The vector store index stores each Node and a corresponding embedding in a Vector Store.
+
+<img src="https://docs.llamaindex.ai/en/latest/_images/vector_store.png"/>
+<div align="center"><i><a href="https://docs.llamaindex.ai/en/latest/_images/vector_store.png">Source Image</a></i></div>
+
+Querying a vector store index involves fetching the top-k most similar Nodes, and passing those into our Response Synthesis module.
+
+<img src="https://docs.llamaindex.ai/en/latest/_images/vector_store_query.png"/>
+<div align="center"><i><a href="https://docs.llamaindex.ai/en/latest/_images/vector_store_query.png">Source Image</a></i></div>
+
+
+**BM25** 
+
 BM25 is a popular ranking function used by search engines to estimate the relevance of documents to a given search query. It's based on probabilistic models and improves upon earlier models like TF-IDF (Term Frequency-Inverse Document Frequency). BM25 considers factors like term frequency and document length to provide a more nuanced approach to relevance scoring. It handles the issue of term saturation (where the importance of a term doesn't always increase linearly with frequency) and length normalization (adjusting scores based on document length to prevent bias toward longer documents). BM25's effectiveness in various search tasks has made it a standard in information retrieval.
 
 To use this retriever we need to take documents from Activeloop's Deep Lake and transform them into nodes, these nodes will then be returned in an orderly manner once a question is asked. This process, as already mentioned previously, exploits the similarity between the description of the pill (which will be passed as a query) and the description of the `n - 3` most similar pills.
@@ -181,14 +202,29 @@ def get_index_and_nodes_after_visual_similarity(filenames: list):
     return index, nodes, service_context, filtered_elements
 ```
 
-Since we have the `n` most similar images (obtained in the previous step through the visual similarity), we can extract the description of these `n` images and use them to generate the nodes. 
+Since we have the `n` most similar images (obtained in the previous step through the visual similarity), we can extract the description of these `n` images and use them to generate the nodes.
 
-Given this initial structure, various advanced recovery techniques have been tested which will be explained in detail in the following paragraphs.
+### Why do we need to care about different retrieval methods and how are they different from each other?
 
-### Advanced - Hybrid Retriever + Re-Ranking technique with only BM25
+RAG (Retrieval-Augmented Generation) systems retrieve relevant information from a given knowledge base, thereby allowing it to generate factual, contextually relevant, and domain-specific information. However, RAG faces a lot of challenges when it comes to effectively retrieving relevant information and generating high-quality responses.
 
-Here we extend the base retriever class and create a custom retriever that uses **only the BM25 retreiver**, nodes can then be re-ranked and filtered. This lets us keep intermediate top-k values large and lets the re-ranking filter out unneeded nodes.
+Traditional search engines work by parsing documents into chunks and indexing these chunks. The algorithm then searches this index for relevant results based on a user’s query. Retrieval Augmented Generation is a new paradigm in machine learning that uses large language models (LLMs) to improve search and discovery. The LLMs, like the GPT-4, generate relevant content based on context.
 
+The advanced technique utilized in this project is the Hybrid Search. It is a technique that combines multiple search algorithms to improve the accuracy and relevance of search results. It uses the best features of both keyword-based search algorithms with vector search techniques. By leveraging the strengths of different algorithms, it provides a more effective search experience for users.
+
+### Hybrid Fusion Retriever
+
+In advanced technique, we merge the vector store based retriever and the BM25 based retriever. This will enable us to capture both semantic relations and keywords in our input queries.
+Since both of these retrievers calculate a score, we can use the reciprocal rerank algorithm to re-sort our nodes without using additional models or excessive computation. We can see the scheme in the image below taken from the LlamaIndex guide:
+
+<div style="display: flex; justify-content: center; gap: 20px;">
+    <img src="hybrid_approach.webp" alt="Masked Image" style="width: 48%; height: auto;"/>
+</div>
+
+### BM25 Retriever + Re-Ranking technique (classic approach with BM25)
+
+
+In this first case we use a classic retriever based only on the **BM25 retriever**, the nodes generated by the query will then be re-ranked and filtered. This allows us to keep the intermediate top-k values ​​large and filter out unnecessary nodes.
 
 ```python
 _, nodes, service_context = get_index_and_nodes_from_activeloop(
@@ -205,14 +241,13 @@ bm25_retriever = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=10)
 Now that we have the nodes we need to obtain the similarity by passing the description of the input image as a query.
 
 ```python
-hybrid_only_bm25_retriever = HybridRetrieverOnlyBM25(bm25_retriever)
-nodes_bm25_response = hybrid_only_bm25_retriever.retrieve(description)
+nodes_bm25_response = bm25_retriever.retrieve(description)
 ```
 
-HybridRetrieverOnlyBM25 is an object that we used to manage the creation of the BM25-based retriever in a more orderly way.
+ClassicRetrieverBM25 is an object that we used to manage the creation of the BM25-based retriever in a more orderly way.
 
 ```python
-class HybridRetrieverOnlyBM25(BaseRetriever):
+class ClassicRetrieverBM25(BaseRetriever):
     def __init__(self, bm25_retriever):
         self.bm25_retriever = bm25_retriever
         super().__init__()
@@ -281,13 +316,13 @@ for el in reranked_nodes_vector:
 for el in unique_nodes:
     print(f"{el.id} : {el.score}\n")
 ```
+### Advanced - Hybrid Retriever + Re-Ranking technique with BM25 and the vector retriever and QueryFusionRetriever
 
-### Hybrid Fusion Retriever
+In the last case we can see how through the QueryFusionRetriever object the entire process described previously can be represented with a single function.
 
-In this step, we merge the vector store based retriever and the BM25 based retriever. This will enable us to capture both semantic relations and keywords in our input queries.
-Since both of these retrievers calculate a score, we can use the reciprocal rerank algorithm to re-sort our nodes without using additional models or excessive computation.
+We fuse our index with a BM25 based retriever, this will enable us to capture both semantic relations and keywords in our input queries.
 
-This setup will also query 4 times, once with your original query, and generate 3 more queries.
+Since both of these retrievers calculate a score, we can use the reciprocal rerank algorithm to re-sort our nodes without using an additional models or excessive computation.
 
 ```python
 from llama_index.retrievers import BM25Retriever
@@ -299,7 +334,7 @@ bm25_retriever = BM25Retriever.from_defaults(
 )
 ```
 
-Next, we can create our fusion retriever, which will return the top-2 most similar nodes from the 4 returned nodes from the retrievers:
+Here we can create our fusion retriever, which will return the top-2 most similar nodes from the 4 returned nodes from the retrievers:
 
 ```python
 from llama_index.retrievers import QueryFusionRetriever
@@ -314,7 +349,7 @@ retriever = QueryFusionRetriever(
 )
 ```
 
-Finally we can perform the query search:
+Finally, we can perform the query search:
 
 ```python
 retriever.retrieve(description)
@@ -328,20 +363,20 @@ The power of these retrievers lies in their understanding of context, their abil
 
 All tested models work very well for our use case and in favor of this thesis are the following metrics:
 
-**Advanced - Hybrid Retriever + Re-Ranking technique with only BM25**
+**BM25 Retriever + Re-Ranking technique (classic approach with BM25)**
 ```text
 retrievers  hit_rate    mrr 
-top-2 eval  0.974643    0.954501 
+top-2 eval  0.964643    0.944501 
 ```
 **Advanced - Hybrid Retriever + Re-Ranking technique with BM25 and the vector retriever**
 ```text
 retrievers  hit_rate    mrr 
-top-2 eval  0.967101    0.954078 
+top-2 eval  0.975101    0.954078 
 ```
-**Hybrid Fusion Retriever**
+**Advanced - Hybrid Retriever + Re-Ranking technique with BM25 and the vector retriever and QueryFusionRetriever**
 ```text
 retrievers  hit_rate    mrr 
-top-2 eval  0.975138    0.954235 
+top-2 eval  0.977138    0.954235 
 ```
 
 Where the **hit_rate** and **MRR (Mean Reciprocal Rank)** are two metrics commonly used to evaluate the performance of information retrieval systems, search algorithms, and recommendation systems.
